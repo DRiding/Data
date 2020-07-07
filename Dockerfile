@@ -31,7 +31,6 @@ RUN apt-get update && \
     build-essential \
     bzip2=1.0.6-8.1ubuntu0.2 \
     libbz2-1.0=1.0.6-8.1ubuntu0.2 \
-    git \
     default-jdk \
     wget \
     cpio \
