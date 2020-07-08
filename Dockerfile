@@ -1,16 +1,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-FROM mcr.microsoft.com/azureml/o16n-base/python-assets@sha256:20ba3085141845301907d7ce6e9ee8388a0e43074f56c262d6de7efebf2ba98f AS inferencing-assets
 
-FROM ubuntu:18.04
+FROM ubuntu:16.04
 
 USER root:root
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV DEBIAN_FRONTEND noninteractive
-
-# Inference
-COPY --from=inferencing-assets /artifacts /var/
 
 # Install Common Dependencies
 RUN apt-get update && \
@@ -29,29 +25,13 @@ RUN apt-get update && \
     # Others
     apt-get install -y \
     build-essential \
-    bzip2=1.0.6-8.1ubuntu0.2 \
-    libbz2-1.0=1.0.6-8.1ubuntu0.2 \
+    bzip2 \
     default-jdk \
+    git=1:2.7.4-0ubuntu1.6 \
     wget \
-    cpio \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    fuse && \
+    cpio && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
-
-# Inference
-# Copy logging utilities, nginx and rsyslog configuration files, IOT server binary, etc.
-COPY --from=inferencing-assets /artifacts /var/
-RUN /var/requirements/install_system_requirements.sh && \
-    cp /var/configuration/rsyslog.conf /etc/rsyslog.conf && \
-    cp /var/configuration/nginx.conf /etc/nginx/sites-available/app && \
-    ln -s /etc/nginx/sites-available/app /etc/nginx/sites-enabled/app && \
-    rm -f /etc/nginx/sites-enabled/default
-ENV SVDIR=/var/runit
-ENV WORKER_TIMEOUT=300
-EXPOSE 5001 8883 8888
 
 # Conda Environment
 ENV MINICONDA_VERSION 4.5.11
@@ -63,15 +43,16 @@ RUN wget -qO /tmp/miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-${
     rm /tmp/miniconda.sh && \
     find / -type d -name __pycache__ | xargs rm -rf
 
-# Open-MPI installation
-ENV OPENMPI_VERSION 3.1.2
-RUN mkdir /tmp/openmpi && \
-    cd /tmp/openmpi && \
-    wget https://download.open-mpi.org/release/open-mpi/v3.1/openmpi-${OPENMPI_VERSION}.tar.gz && \
-    tar zxf openmpi-${OPENMPI_VERSION}.tar.gz && \
-    cd openmpi-${OPENMPI_VERSION} && \
-    ./configure --enable-orterun-prefix-by-default && \
-    make -j $(nproc) all && \
-    make install && \
-    ldconfig && \
-    rm -rf /tmp/openmpi
+# Intel MPI installation
+ENV INTEL_MPI_VERSION 2018.3.222
+ENV PATH $PATH:/opt/intel/compilers_and_libraries/linux/mpi/bin64
+RUN cd /tmp && \
+    wget -q "http://registrationcenter-download.intel.com/akdlm/irc_nas/tec/13063/l_mpi_${INTEL_MPI_VERSION}.tgz" && \
+    tar zxvf l_mpi_${INTEL_MPI_VERSION}.tgz && \
+    sed -i -e 's/^ACCEPT_EULA=decline/ACCEPT_EULA=accept/g' /tmp/l_mpi_${INTEL_MPI_VERSION}/silent.cfg && \
+    cd /tmp/l_mpi_${INTEL_MPI_VERSION} && \
+    ./install.sh -s silent.cfg --arch=intel64 && \
+    cd / && \
+    rm -rf /tmp/l_mpi_${INTEL_MPI_VERSION}* && \
+    rm -rf /opt/intel/compilers_and_libraries_${INTEL_MPI_VERSION}/linux/mpi/intel64/lib/debug* && \
+    echo "source /opt/intel/compilers_and_libraries_${INTEL_MPI_VERSION}/linux/mpi/intel64/bin/mpivars.sh" >> ~/.bashrc
