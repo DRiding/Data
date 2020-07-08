@@ -27,7 +27,7 @@ RUN apt-get update && \
     build-essential \
     bzip2 \
     default-jdk \
-    git=1:2.7.4-0ubuntu1.6 \
+    git \
     wget \
     cpio && \
     apt-get clean -y && \
